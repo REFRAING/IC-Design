@@ -1,0 +1,76 @@
+`timescale 1ns / 100ps
+module FOC
+#(
+	parameter max = 50)
+(
+input 		 		 clk, 
+input 				 rst_n,
+input              en,
+output reg 	[7:0]  cnt
+);
+
+reg 			[1:0]  state;
+reg 			[1:0]	 state_next;
+//定义三种状态
+localparam IDLE = 2'd0;
+localparam INC  = 2'd1;
+localparam DEC  = 2'd2;
+
+assign cfg_max_limit = (cfg_max == 32'd0) ? 32'd1 : cfg_max;
+//定义时钟上升沿到来时状态的变化
+always @(posedge clk or negedge rst_n)
+begin
+	if(!rst_n)
+		state <= IDLE;
+	else 
+		state <= state_next;
+end
+
+
+//定义状态机
+always @(*)
+begin
+	case(state)
+		IDLE:
+		begin
+			if(en)
+				state_next <= INC;
+			else
+				state_next <= IDLE;
+		end
+		
+		INC:
+		begin
+			if(~en)
+				state_next <= IDLE;
+			if(cnt >= max)
+				state_next <= DEC;
+			else
+				state_next <= INC;
+		end
+		
+		DEC:
+		begin
+			if(~en)
+				state_next <= IDLE;
+			else if(cnt <= 8'd1)
+				state_next <= INC;
+			else
+				state_next <= DEC;
+		end
+	endcase
+end
+
+always @(posedge clk or negedge rst_n)
+begin
+	if(!rst_n)
+		cnt <= 8'd0;
+	else if(state == IDLE)
+		cnt <= 8'd0;
+	else if(state == INC)
+		cnt <= cnt + 1;
+	else if(state == DEC)
+		cnt <= cnt - 1;
+end
+
+endmodule
